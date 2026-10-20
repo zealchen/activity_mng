@@ -1,0 +1,19 @@
+# Local AWS plane for Activity Manager.
+# LocalStack Pro on its own port (4666) so it can run next to other projects'
+# LocalStack containers. The auth token comes from ~/.genesis/config, loaded by
+# scripts/env.sh — a missing token aborts here instead of degrading silently.
+services:
+  localstack:
+    image: localstack/localstack-pro:2026.8.0
+    container_name: activity-mng-localstack
+    ports:
+      - "4666:4666"
+    environment:
+      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN:?LOCALSTACK_AUTH_TOKEN is not set - run via scripts/*.sh which source ~/.genesis/config}
+      GATEWAY_LISTEN: 0.0.0.0:4666
+      SERVICES: dynamodb,s3,lambda,iam,sts,logs,apigateway,events,sns,ses,cloudwatch
+      LAMBDA_RUNTIME_ENVIRONMENT_TIMEOUT: "60"
+      DEBUG: "0"
+      PERSISTENCE: "0"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

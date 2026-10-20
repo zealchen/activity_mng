@@ -1,0 +1,324 @@
+{
+  "id": "gsc-christmas-party",
+  "version": 1,
+  "name": "God's Special Children Christmas Mass & Party",
+  "description": "Annual Christmas Mass and party for God's Special Children and their families, hosted by the Knights and the Daughters. Rebuilt from the 2025 run (Danny Thiele).",
+  "defaults": {
+    "venue": "St. Joseph's Hall",
+    "timezone": "America/Chicago",
+    "sendTime": "09:00",
+    "guests": 130,
+    "organization": "SFX Knights of Columbus Council 8546"
+  },
+  "policy": {
+    "sms": false,
+    "remindAfterHours": 48,
+    "escalateAfterHours": 72,
+    "broadcastAckHours": 24,
+    "smsFooter": "Reply 1 when done, 2 if you need help."
+  },
+  "phases": ["Prepare", "Notify", "Shop", "Event", "Wrap-up"],
+  "roles": [
+    { "key": "coordinator", "name": "Coordinator", "description": "Owns the whole event. Gets every alert." },
+    { "key": "knights_liaison", "name": "Knights Liaison", "description": "Forwards messages to the whole Knights council." },
+    { "key": "daughters_liaison", "name": "Daughters Liaison", "description": "Forwards messages to the Daughters; owns decorations, trays, cake, table cloths." },
+    { "key": "purchasing", "name": "Purchasing & Head Cook", "description": "Inventory, shopping, propane, cooking, receipts." },
+    { "key": "facilities", "name": "Parish Facilities", "description": "Hall and church reservations, AC, sound, doors." },
+    { "key": "gifts", "name": "Santa Gifts", "description": "Prepares and wraps the Santa gifts." },
+    { "key": "photos", "name": "Santa Photos", "description": "Polaroid photos with Santa for families to take home." },
+    { "key": "santa", "name": "Santa", "description": "Plays Santa; brings or borrows the suit." },
+    { "key": "results", "name": "Results Counter", "description": "Counts people and leftovers at the end of the party." }
+  ],
+  "tasks": [
+    {
+      "key": "confirm-team", "phase": "Prepare", "roles": ["coordinator"], "kind": "coordinator",
+      "send": -51, "due": -42,
+      "title": "Confirm this year's team (who is in, who changed) and assign every role"
+    },
+    {
+      "key": "reserve-hall", "phase": "Prepare", "roles": ["facilities"], "kind": "message",
+      "send": -48, "due": -37,
+      "title": "Reserve the Hall, the Mass time and the celebrant",
+      "sms": "Hi {{first}}, {{coord.first}} here ({{org}}). Could you reserve {{venue}} and the church for the God's Special Children Christmas Mass & Party on {{mdy 0}}? Details: {{link}}",
+      "email": {
+        "subject": "{{eventName}} {{year}} - Hall and Mass reservation",
+        "body": "{{first}}, we would like to reserve the following for our annual God's Special Children's Christmas Mass and Party:\n\n1- {{venue}}, {{date -1}}, 3:00 - 6:00 PM (set up and decorate)\n2- {{venue}}, {{date 0}}, 11:00 AM - 6:00 PM\n3- The church for the God's Special Children's Christmas Mass, {{date 0}} at 2:00 PM\n4- Could you let me know who will celebrate the Mass?\n5- Is the Christmas Market running that weekend, and what time does it close on Saturday?\n\nPlease tap your personal link when this is confirmed: {{link}}\n\nThank you for helping the Knights and Daughters host this party.\n\n{{signature}}"
+      }
+    },
+    {
+      "key": "recruit-santa", "phase": "Prepare", "roles": ["santa"], "kind": "message",
+      "send": -45, "due": -21,
+      "title": "Confirm Santa (person and suit)",
+      "sms": "Hi {{first}}, {{coord.first}} here ({{org}}). Would you be our Santa at the God's Special Children Christmas Party on {{mdy 0}} around 3 PM? Details: {{link}}",
+      "email": {
+        "subject": "Would you be our Santa on {{mdy 0}}?",
+        "body": "{{first}},\n\nOur God's Special Children Christmas Party is on {{date 0}} in {{venue}}. Santa arrives around 3:00 PM, walks through the party, then sits in Santa's chair to hear each child's Christmas list, hand out gifts and take a photo that families take home.\n\nWould you be our Santa this year? Please also let me know if you have a suit or need us to find one.\n\nTap here to answer: {{link}}\n\n{{signature}}"
+      },
+      "checklist": ["Santa confirmed", "Santa suit ready"]
+    },
+    {
+      "key": "daughters-save-the-date", "phase": "Notify", "roles": ["daughters_liaison"], "kind": "message",
+      "send": -34, "due": -30,
+      "title": "Daughters save-the-date (please forward to all Daughters)",
+      "sms": "Hi {{first}}, {{coord.first}} here ({{org}}). Please forward the GSC Christmas Party save-the-date to the Daughters. I emailed it to you. Details: {{link}}",
+      "email": {
+        "subject": "GSC Christmas Party - Daughters save the date",
+        "body": "{{first}}, please send this save the date for our God's Special Children Christmas Party.\nThanks!!!\n{{coord.first}}\n\n- - -\n\nDaughters,\nPlease save these dates:\n{{date -1}} from 3:00 - 6:00 PM to set up and help decorate {{venue}}.\n{{date 0}} from 12:30 - 5:30 PM to cook and clean up for the GSC Christmas Party.\nA more detailed help request and schedule will be emailed when we are closer to the event.\nFeel free to call me at any time for more information or to offer any suggestions to help us improve.\nWe need your help.\n\n{{signature}}\n\n(When you have forwarded this, tap: {{link}})"
+      }
+    },
+    {
+      "key": "knights-save-the-date", "phase": "Notify", "roles": ["knights_liaison"], "kind": "message",
+      "send": -30, "due": -27,
+      "title": "Knights save-the-date (please forward to the council)",
+      "sms": "Hi {{first}}, {{coord.first}} here ({{org}}). Please forward the GSC Christmas Party save-the-date to our council. I emailed it to you. Details: {{link}}",
+      "email": {
+        "subject": "God's Special Children's Christmas Party",
+        "body": "{{first}}, please forward this reminder and request for help out to our council.\nThanks!!!\n{{coord.first}}\n\n- - -\n\nKnights,\n{{date -1}} from 3:00 - 6:00 PM to set up and help decorate {{venue}}.\n{{date 0}} from 12:30 - 5:30 PM to cook and clean up for the GSC Christmas Party.\nA more detailed help request and schedule will be emailed when we are closer to the event.\nFeel free to call me at any time for more information or to offer any suggestions to help us improve.\nWe need your help.\n\n{{signature}}\n\n(When you have forwarded this, tap: {{link}})"
+      }
+    },
+    {
+      "key": "daughters-checklist", "phase": "Notify", "roles": ["daughters_liaison"], "kind": "message",
+      "send": -28, "due": -7,
+      "title": "Daughters check list (trays, cake, decorations, table cloths)",
+      "sms": "Hi {{first}}, {{coord.first}} here. Here is the Daughters check list for the GSC Christmas Party. Check items off as they are ready: {{link}}",
+      "email": {
+        "subject": "{{year}} GSC Christmas Party - Daughters Check List",
+        "body": "{{year}} GSC Christmas Party Daughters Check List:\n\n  - 45 Santa gifts (Gifts team; last year 75 were prepared and 42 given out)\n  - 2 large fruit trays\n  - 2 small cheese trays\n  - 1 large or 2 half sheet cakes\n  - Decorations (Santa station: trees, balloon arch, rug)\n  - Table cloths:\n      {{venue}}: 19 - 60\" round tables with 8 chairs (152 seating)\n      4 - 8' serving tables plus 1 - 8' for dessert\n\nPlease let me know if there are any changes or additions.\nCheck off each item when it's ready: {{link}}\n\n{{signature}}"
+      },
+      "checklist": ["2 large fruit trays", "2 small cheese trays", "1 large or 2 half sheet cakes", "Decorations for the Santa station", "Table cloths: 19 round (60\") + 5 x 8' tables"]
+    },
+    {
+      "key": "santa-gifts", "phase": "Notify", "roles": ["gifts"], "kind": "message",
+      "send": -28, "due": -7,
+      "title": "Santa gifts - 45 this year (last year 75 prepared, 42 given out)",
+      "sms": "Hi {{first}}, {{coord.first}} here. For the GSC Christmas Party on {{mdy 0}} we need about 45 Santa gifts this year (last year 42 were given out). Details: {{link}}",
+      "email": {
+        "subject": "Santa gifts for the GSC Christmas Party - {{mdy 0}}",
+        "body": "{{first}},\n\nThank you again for preparing the Santa gifts. Last year we prepared 75 and gave out 42, so this year about 45 gifts should be plenty.\n\nPlease bring them to {{venue}} on {{date -1}} between 3:00 and 6:00 PM so we can set up the Santa station.\n\nTap here when the gifts are ready: {{link}}\n\n{{signature}}"
+      },
+      "checklist": ["45 gifts wrapped", "Gifts dropped off at the Hall"]
+    },
+    {
+      "key": "knights-help-request", "phase": "Notify", "roles": ["knights_liaison"], "kind": "message",
+      "send": -21, "due": -18,
+      "title": "Knights detailed help request + volunteer sign-up",
+      "sms": "Hi {{first}}, {{coord.first}} here. Please forward the GSC Christmas Party help request to our council. I emailed it to you. Details: {{link}}",
+      "email": {
+        "subject": "God's Special Children's Christmas Mass and Party - Knights Help Request",
+        "body": "{{first}}, please forward this help request to our council. Thanks!!!\n\n- - -\n\nGod's Special Children's Christmas Mass and Party\nKnights Help Request\n{{date -1}} and {{date 0}}\n\nOur council needs help to successfully host the God's Special Children's Christmas Party. This is our biggest and most attended event of the year for intellectually and developmentally challenged people.\n\n{{date -1}}, 3:00 to 6:00 PM.\nSet up and decorate {{venue}} with the Daughters. This also gives us an opportunity to get presents and leftover decorations for our Santa station.\n\n{{date 0}}, 12:30 - 1:00 PM.\nWe need 5-8 men to set up the cooking area and help prep the food, make the jambalaya, grill the hamburgers and hotdogs.\n\n{{date 0}}, 2:00 PM.\nGod's Special Children's Christmas Mass.\n\n{{date 0}}, 3:00 PM.\nChristmas Party in {{venue}}. We will need a few Knights to help serve and assist our special needs guests and their families. Try to interact with the families offering more food or just saying hello. If you can, wear your council shirt to show our support to these families.\n\n{{date 0}}, 4:30 - 5:30 PM.\nWe will need 5-8 men to help break down and clean up {{venue}} after the party. The more men we have the faster it goes.\n\nPLEASE SIGN UP for a time slot: call or text me at {{coord.phone}}, or reply to this email with your name, phone number and the time slots you can help with.\n\nThrough hard work, St. Francis Xavier Knights of Columbus has earned the reputation in the archdiocese and recognized by state leaders as the God's Special Children council. We must continue our dedication to maintain this honor. Please help our council throw the best Christmas party for our God's Special Children and their families. For many this will be their only Christmas Party.\n\n{{signature}}\n\n(When you have forwarded this, tap: {{link}})"
+      }
+    },
+    {
+      "key": "daughters-help-request", "phase": "Notify", "roles": ["daughters_liaison"], "kind": "message",
+      "send": -21, "due": -18,
+      "title": "Daughters detailed help request + volunteer sign-up",
+      "sms": "Hi {{first}}, {{coord.first}} here. Please forward the GSC Christmas Party help request to the Daughters. I emailed it to you. Details: {{link}}",
+      "email": {
+        "subject": "God's Special Children's Christmas Mass and Party - Daughters Help Request",
+        "body": "{{first}}, please forward this help request to the Daughters. Thanks!!!\n\n- - -\n\nGod's Special Children's Christmas Mass and Party\nDaughters Help Request\n{{date -1}} and {{date 0}}\n\nOur council needs help to successfully host the God's Special Children's Christmas Party. This is our biggest and most attended event of the year for intellectually and developmentally challenged people.\n\n{{date -1}}, 3:00 to 6:00 PM.\nSet up and decorate {{venue}}.\n\n{{date 0}}, 12:30 - 1:00 PM.\nSet up the cooking area and help prep the food.\n\n{{date 0}}, 2:00 PM.\nGod's Special Children's Christmas Mass.\n\n{{date 0}}, 3:00 PM.\nChristmas Party in {{venue}}. Help serve and assist our special needs guests and their families.\n\n{{date 0}}, 4:30 - 5:30 PM.\nBreak down and clean up {{venue}} after the party.\n\nPLEASE SIGN UP for a time slot: call or text me at {{coord.phone}}, or reply to this email with your name, phone number and the time slots you can help with.\n\nFeel free to call me at any time for more information or to offer any suggestions to help us improve. We need your help.\n\n{{signature}}\n\n(When you have forwarded this, tap: {{link}})"
+      }
+    },
+    {
+      "key": "inventory", "phase": "Shop", "roles": ["purchasing"], "kind": "message",
+      "send": -16, "due": -12,
+      "title": "Check supply inventory for {{guests}} people",
+      "sms": "Hi {{first}}, {{coord.first}} here. Please check our supply inventory for about {{guests}} people (plates, cups, cutlery, propane, Sterno). Check list: {{link}}",
+      "email": {
+        "subject": "GSC Christmas Party - please check our inventory",
+        "body": "{{first}},\n\nPlease check our inventory so we have enough for about {{guests}} people. Check off what we already have, and reply or tap \"I need help\" for anything missing:\n\n{{link}}\n\n{{signature}}"
+      },
+      "checklist": ["186 dinner plates", "180 dessert plates", "200 cups", "300 napkins", "Cutlery (Hefty 250 box)", "2 rolls heavy duty foil", "1 case Sterno", "3 propane tanks (full?)", "Stick lighter"]
+    },
+    {
+      "key": "polaroid", "phase": "Shop", "roles": ["photos"], "kind": "message",
+      "send": -14, "due": -6,
+      "title": "Polaroid film for about 45 Santa photos",
+      "sms": "Hi {{first}}, {{coord.first}} here. Could you bring the Polaroid camera and film for about 45 Santa photos on {{mdy 0}}? Last year we printed 40. Details: {{link}}",
+      "email": {
+        "subject": "Santa photos for the GSC Christmas Party - {{mdy 0}}",
+        "body": "{{first}},\n\nThank you for taking the Santa photos again. Last year you printed 40 Polaroid pictures of Santa with our GSC families (and donated the film - thank you!). This year please plan for about 45.\n\nTap here when you are set: {{link}}\n\n{{signature}}"
+      },
+      "checklist": ["Camera ready", "Film for 45 photos"]
+    },
+    {
+      "key": "shop-sams", "phase": "Shop", "roles": ["purchasing"], "kind": "message",
+      "send": -9, "due": -7,
+      "title": "Sam's shopping: dry goods, refrigerated and frozen",
+      "sms": "Hi {{first}}, {{coord.first}} here. The Sam's shopping list for the GSC Christmas Party is ready - quantities updated from last year. Check items off as you shop: {{link}}",
+      "email": {
+        "subject": "GSC Christmas Party - Sam's shopping list",
+        "body": "{{first}},\n\nThe Sam's shopping list is ready. Quantities were adjusted from last year's leftovers (fewer buns, no chili, 10 lb of rice instead of 15).\n\nOpen the list and check items off as you shop: {{link}}\n\nPlease keep your receipts - you can upload a photo after the party for reimbursement.\n\n{{signature}}"
+      },
+      "shoppingStores": ["Sam's - Dry Goods", "Sam's - Refrigerated & Frozen"]
+    },
+    {
+      "key": "facility-requests", "phase": "Shop", "roles": ["facilities"], "kind": "message",
+      "send": -6, "due": -3,
+      "title": "Facility requests for the day (AC, sound, sacristies, Hall unlock)",
+      "sms": "Hi {{first}}, {{coord.first}} here ({{org}}). I emailed our facility requests for the GSC Mass & Party on {{mdy 0}} (AC, sound, sacristies, Hall unlock). Details: {{link}}",
+      "email": {
+        "subject": "GSC Mass and Christmas Party - {{date 0}}",
+        "body": "{{first}}, we are having a God's Special Children Mass and Christmas Party on {{date 0}} and will need the following:\n\n1- Church's AC to be set to run from 1:00 PM to 4:00 PM.\n2- Church's sound system left on after 12:00 PM Mass.\n3- Both the front and back sacristies left open after 12:00 PM Mass.\n4- {{venue}} unlocked at 11:30 AM.\n5- {{venue}} AC or heater to be set to run from 11:00 AM to 6:00 PM, {{mdy 0}}.\n\nThank you for helping the Knights and Daughters host their annual God's Special Children's Christmas Party. As you know, our support for developmentally and intellectually challenged people and their families - these parties mean so much to them.\n\nPlease tap here when this is set: {{link}}\n\n{{coord.name}}\n{{org}}"
+      },
+      "checklist": ["Church AC 1-4 PM", "Sound system on after 12 PM Mass", "Sacristies open", "Hall unlocked 11:30 AM", "Hall AC/heat 11 AM-6 PM"]
+    },
+    {
+      "key": "shop-jambalaya", "phase": "Shop", "roles": ["purchasing"], "kind": "message",
+      "send": -5, "due": -2,
+      "title": "Jambalaya shopping (Dorignac's, Restaurant Depot, Bailey's) + propane refills",
+      "sms": "Hi {{first}}, {{coord.first}} here. Jambalaya shopping list and propane refills for {{mdy 0}} are ready (rice: 10 lb this year). Check items off as you go: {{link}}",
+      "email": {
+        "subject": "GSC Christmas Party - jambalaya shopping and propane",
+        "body": "{{first}},\n\nHere is the jambalaya shopping list (Dorignac's, Restaurant Depot, Bailey's) and the propane refills. Per last year's note, only 10 lb of rice this time.\n\nCheck items off as you go: {{link}}\n\n{{signature}}"
+      },
+      "shoppingStores": ["Dorignac's", "Restaurant Depot / Bailey's", "Propane (U-Haul)"]
+    },
+    {
+      "key": "buns", "phase": "Event", "roles": ["purchasing"], "kind": "message",
+      "send": -2, "due": -1, "sendTime": "17:00",
+      "title": "Saturday morning: pick up fresh buns at Sam's",
+      "sms": "Hi {{first}}, reminder for Saturday morning: pick up 7 packs of hamburger buns and 6 packs of hot dog buns at Sam's (latest best-by date). List: {{link}}",
+      "email": {
+        "subject": "Reminder: fresh buns Saturday morning",
+        "body": "{{first}},\n\nReminder: on {{date -1}} in the morning please pick up the buns at Sam's, as fresh as possible (latest best-by date):\n\n  - 7 packs hamburger buns (last year 4 of 10 packs were left)\n  - 6 packs hot dog buns (last year 5 of 10 packs were left)\n\n{{link}}\n\n{{signature}}"
+      },
+      "shoppingStores": ["Sam's - Saturday Pick-up"]
+    },
+    {
+      "key": "setup-reminder", "phase": "Event", "roles": ["daughters_liaison", "knights_liaison"], "kind": "message",
+      "send": -2, "due": -1, "sendTime": "17:00",
+      "title": "Reminder: Saturday 3-6 PM set up and decorate",
+      "sms": "Hi {{first}}, reminder: set up and decorate {{venue}} on {{date -1}}, 3-6 PM. Please remind your group. Details: {{link}}",
+      "email": {
+        "subject": "Reminder: set up {{venue}} - {{date -1}}, 3-6 PM",
+        "body": "{{first}},\n\nReminder: we set up and decorate {{venue}} on {{date -1}}, 3:00 - 6:00 PM. Please remind your group.\n\nTables: 19 round tables (8 chairs each), 4 serving tables + 1 dessert table, Santa station at the front.\n\n{{link}}\n\n{{signature}}"
+      }
+    },
+    {
+      "key": "event-day-reminder", "phase": "Event", "roles": ["purchasing", "knights_liaison"], "kind": "message",
+      "send": -1, "due": 0, "sendTime": "16:00",
+      "title": "Reminder: Sunday schedule (12:30 cook, 2 PM Mass, 3 PM party, 4:30 clean-up)",
+      "sms": "Hi {{first}}, tomorrow: 12:30 cooking set-up, 2 PM Mass, 3 PM party, 4:30 clean-up at {{venue}}. Thank you! {{link}}",
+      "email": {
+        "subject": "Tomorrow: GSC Christmas Mass & Party",
+        "body": "{{first}},\n\nTomorrow, {{date 0}}:\n\n  12:30 PM  Set up the cooking area, prep food, jambalaya, grill\n   2:00 PM  God's Special Children's Christmas Mass\n   3:00 PM  Christmas Party in {{venue}}\n   4:30 PM  Break down and clean up\n\nIf you can, wear your council shirt.\n\n{{link}}\n\n{{signature}}"
+      }
+    },
+    {
+      "key": "results", "phase": "Wrap-up", "roles": ["results"], "kind": "results",
+      "send": 0, "due": 0, "sendTime": "16:00",
+      "title": "Count people and leftovers and fill in the results form",
+      "sms": "Hi {{first}}, before you leave please count people and leftovers and fill in the results form (no question marks please!): {{link}}",
+      "email": {
+        "subject": "GSC Christmas Party - results form",
+        "body": "{{first}},\n\nBefore you leave the party, please count people and leftovers and fill in the results form. Every field is needed - it decides next year's shopping list.\n\n{{link}}\n\n{{signature}}"
+      }
+    },
+    {
+      "key": "receipts", "phase": "Wrap-up", "roles": ["purchasing"], "kind": "receipts",
+      "send": 1, "due": 4,
+      "title": "Upload receipts for reimbursement",
+      "sms": "Hi {{first}}, thank you for all the shopping and cooking! Please upload a photo of each receipt so we can reimburse you: {{link}}",
+      "email": {
+        "subject": "GSC Christmas Party - receipts for reimbursement",
+        "body": "{{first}},\n\nThank you for all the shopping and cooking! Please upload a photo of each receipt (or just type the store and amount) so we can reimburse you:\n\n{{link}}\n\n{{signature}}"
+      }
+    },
+    {
+      "key": "retro", "phase": "Wrap-up", "roles": ["coordinator"], "kind": "coordinator",
+      "send": 2, "due": 14,
+      "title": "Review results and expenses, save the playbook for next year"
+    }
+  ],
+  "shifts": [
+    { "key": "setup", "name": "Saturday set up & decorate", "day": -1, "start": "15:00", "end": "18:00", "need": 8 },
+    { "key": "cook", "name": "Sunday cooking set-up & prep", "day": 0, "start": "12:30", "end": "14:00", "need": 8 },
+    { "key": "serve", "name": "Sunday party - serve & assist families", "day": 0, "start": "15:00", "end": "16:30", "need": 4 },
+    { "key": "clean", "name": "Sunday break down & clean up", "day": 0, "start": "16:30", "end": "17:30", "need": 8 }
+  ],
+  "shopping": [
+    { "store": "Sam's - Dry Goods", "name": "Heinz Picnic Pack (2 ketchup, relish, mustard)", "lastQty": "1", "qty": "1", "note": "" },
+    { "store": "Sam's - Dry Goods", "name": "Member's Mark clear dessert plates, 2-pack of 90", "lastQty": "2", "qty": "2", "note": "" },
+    { "store": "Sam's - Dry Goods", "name": "Dixie Ultra heavyweight dinner plates, 186 pack", "lastQty": "1", "qty": "1", "note": "Check inventory first" },
+    { "store": "Sam's - Dry Goods", "name": "Swanson chicken broth, 32 oz box", "lastQty": "6", "qty": "4", "note": "Rice cut from 15 to 10 lb" },
+    { "store": "Sam's - Dry Goods", "name": "Hormel chili, no beans (case of 6)", "lastQty": "1", "qty": "0", "note": "None used last year" },
+    { "store": "Sam's - Dry Goods", "name": "Chips variety tray, 50 singles", "lastQty": "3", "qty": "3", "note": "" },
+    { "store": "Sam's - Dry Goods", "name": "Jambalaya Girl rice mix, 20 oz", "lastQty": "3", "qty": "2", "note": "Rice cut from 15 to 10 lb" },
+    { "store": "Sam's - Dry Goods", "name": "Cups", "lastQty": "200", "qty": "200", "note": "" },
+    { "store": "Sam's - Dry Goods", "name": "Napkins (Member's Mark 300 pack)", "lastQty": "300", "qty": "300", "note": "" },
+    { "store": "Sam's - Dry Goods", "name": "Hefty white cutlery, 250 count", "lastQty": "1", "qty": "1", "note": "" },
+    { "store": "Sam's - Dry Goods", "name": "Heavy duty aluminum foil, large roll", "lastQty": "2", "qty": "2", "note": "" },
+    { "store": "Sam's - Dry Goods", "name": "Half size aluminum steam pans, 36 pack", "lastQty": "1", "qty": "1", "note": "" },
+    { "store": "Sam's - Dry Goods", "name": "Large aluminum steam pans (serving stands)", "lastQty": "1", "qty": "1", "note": "" },
+    { "store": "Sam's - Dry Goods", "name": "Kool-Aid Tropical Punch, 5 lb 2.5 oz", "lastQty": "1 (lists disagreed)", "qty": "1", "note": "One tub - last year's two lists differed" },
+    { "store": "Sam's - Dry Goods", "name": "Lipton lemon iced tea powder, 5 lb", "lastQty": "1", "qty": "1", "note": "" },
+    { "store": "Sam's - Dry Goods", "name": "Bottled water, case of 80 x 16.9 oz", "lastQty": "1", "qty": "1", "note": "Count leftovers this year" },
+    { "store": "Sam's - Dry Goods", "name": "Sterno, case", "lastQty": "1", "qty": "1", "note": "" },
+    { "store": "Sam's - Dry Goods", "name": "Salt and pepper", "lastQty": "1", "qty": "1", "note": "" },
+    { "store": "Sam's - Refrigerated & Frozen", "name": "Member's Mark ground sirloin burgers, 1/3 lb (18 per pack)", "lastQty": "126 burgers", "qty": "108 burgers", "note": "1 pan left over" },
+    { "store": "Sam's - Refrigerated & Frozen", "name": "Nathan's beef franks, 3 lb (24 per pack)", "lastQty": "5 packs", "qty": "4 packs", "note": "1 pan left over" },
+    { "store": "Sam's - Refrigerated & Frozen", "name": "Boneless skinless chicken thighs", "lastQty": "8-10 lb", "qty": "6-7 lb", "note": "Rice cut from 15 to 10 lb" },
+    { "store": "Sam's - Refrigerated & Frozen", "name": "Mild cheddar, shredded, 2 lb bag", "lastQty": "3", "qty": "2", "note": "Lots left over" },
+    { "store": "Sam's - Refrigerated & Frozen", "name": "Smoked sausage", "lastQty": "6 lb", "qty": "4 lb", "note": "Rice cut from 15 to 10 lb" },
+    { "store": "Sam's - Refrigerated & Frozen", "name": "Kielbasa andouille, 2 lb (snack for workers)", "lastQty": "1", "qty": "1", "note": "" },
+    { "store": "Sam's - Saturday Pick-up", "name": "Hamburger buns", "lastQty": "10 packs", "qty": "7 packs", "note": "4 packs left over" },
+    { "store": "Sam's - Saturday Pick-up", "name": "Hot dog buns", "lastQty": "10 packs", "qty": "6 packs", "note": "5 packs left over" },
+    { "store": "Dorignac's", "name": "Guidry's Creole seasoning, 1 lb", "lastQty": "5", "qty": "4", "note": "Rice cut from 15 to 10 lb" },
+    { "store": "Dorignac's", "name": "Ground pork", "lastQty": "1.5-2 lb", "qty": "1.5 lb", "note": "" },
+    { "store": "Dorignac's", "name": "Bacon, 12 oz (cut small)", "lastQty": "1", "qty": "1", "note": "" },
+    { "store": "Dorignac's", "name": "Minced garlic, 4.5 oz", "lastQty": "1", "qty": "1", "note": "" },
+    { "store": "Dorignac's", "name": "Beef broth cans (cooked burgers)", "lastQty": "6", "qty": "6", "note": "" },
+    { "store": "Dorignac's", "name": "Ro-Tel, 10 oz", "lastQty": "1", "qty": "1", "note": "" },
+    { "store": "Dorignac's", "name": "Crystal hot sauce, 12 oz", "lastQty": "1", "qty": "1", "note": "" },
+    { "store": "Dorignac's", "name": "Blue Plate mayonnaise squeeze, 18 oz", "lastQty": "1", "qty": "1", "note": "" },
+    { "store": "Dorignac's", "name": "Toothpicks (sausage for workers)", "lastQty": "1", "qty": "1", "note": "" },
+    { "store": "Restaurant Depot / Bailey's", "name": "Rice for jambalaya", "lastQty": "15 lb", "qty": "10 lb", "note": "Handwritten note: only use 10 lb next time" },
+    { "store": "Restaurant Depot / Bailey's", "name": "Bailey's andouille (jambalaya)", "lastQty": "1 order", "qty": "1 order", "note": "" },
+    { "store": "Propane (U-Haul)", "name": "Refill propane tanks (2 grill, 1 jambalaya pot)", "lastQty": "3", "qty": "3", "note": "" },
+    { "store": "Propane (U-Haul)", "name": "Stick lighter", "lastQty": "1", "qty": "1", "note": "" }
+  ],
+  "resultsForm": [
+    { "group": "People", "fields": [
+      { "key": "mass", "label": "People at Mass", "last": "140" },
+      { "key": "party", "label": "Guests at the party", "last": "125" },
+      { "key": "daughters", "label": "Daughters helping", "last": "21" },
+      { "key": "knights", "label": "Knights helping", "last": "14" },
+      { "key": "giftsOut", "label": "Gifts given out", "last": "42" },
+      { "key": "giftsLeft", "label": "Gifts left", "last": "2" }
+    ]},
+    { "group": "Leftover drinks", "fields": [
+      { "key": "water", "label": "Water bottles", "last": "?" },
+      { "key": "koolaid", "label": "Kool-Aid", "last": "?" },
+      { "key": "tea", "label": "Tea", "last": "?" }
+    ]},
+    { "group": "Leftover food (refrigerate - give to a Daughter or Knight to take home)", "fields": [
+      { "key": "jambalaya", "label": "Jambalaya (pans)", "last": "1" },
+      { "key": "burgers", "label": "Hamburgers (pans)", "last": "1" },
+      { "key": "hotdogs", "label": "Hot dogs (pans)", "last": "1" },
+      { "key": "cheese", "label": "Shredded cheese (bags)", "last": "4" },
+      { "key": "burgerBuns", "label": "Hamburger buns (packs)", "last": "4" },
+      { "key": "hotdogBuns", "label": "Hot dog buns (packs)", "last": "5" },
+      { "key": "trays", "label": "Fruit / cheese trays", "last": "1" },
+      { "key": "chips", "label": "Bags of chips", "last": "?" },
+      { "key": "cake", "label": "Cake or cupcakes", "last": "0" }
+    ]},
+    { "group": "Condiments (refrigerate once opened)", "fields": [
+      { "key": "mayo", "label": "Mayonnaise", "last": "1 used" },
+      { "key": "ketchup", "label": "Ketchup", "last": "1/2 left" },
+      { "key": "mustard", "label": "Yellow mustard", "last": "1 used" },
+      { "key": "relish", "label": "Sweet relish", "last": "?" }
+    ]}
+  ],
+  "lastYear": {
+    "year": 2025,
+    "totalCost": 770.50,
+    "donations": 47.00,
+    "notes": [
+      "Rice: 15 lb used - only use 10 lb next time.",
+      "Buns: 4 of 10 hamburger packs and 5 of 10 hot dog packs left over.",
+      "Chili: none used.",
+      "Gifts: 75 prepared, 42 given out, 2 left.",
+      "Drinks and chips leftovers were never counted (marked '?')."
+    ]
+  }
+}

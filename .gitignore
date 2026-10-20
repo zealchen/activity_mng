@@ -1,0 +1,17 @@
+node_modules/
+.build/
+.DS_Store
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+tfplan
+plan.json
+plan.txt
+
+# Real contact details and source material - never in this public repo
+scripts/people.local.json
+bag.tgz
+GSC2025.pdf
+gsc-demo.html

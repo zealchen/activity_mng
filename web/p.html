@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Tasks</title>
+<link rel="stylesheet" href="style.css">
+<style>
+body { font-size: 18px; line-height: 1.5; }
+.wrap { max-width: 620px; margin: 0 auto; padding: 18px 16px 60px; }
+h1 { font-size: 28px; margin: 6px 0 2px; }
+.sub { color: var(--muted); font-size: 16px; }
+.card { margin: 16px 0; padding: 18px; border-radius: 16px; }
+.card h2 { font-size: 21px; margin-bottom: 4px; }
+.due { color: var(--muted); font-size: 15px; }
+.big { display: block; width: 100%; font-size: 19px; font-weight: 600; padding: 15px; border-radius: 12px; border: 0; margin-top: 10px; }
+.big.ok { background: var(--green); color: #fff; }
+.big.help { background: #fff; border: 2px solid var(--line); color: var(--ink); }
+.big.alt { background: var(--gold); color: #fff; }
+.ck { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid #f0eee8; font-size: 17px; cursor: pointer; }
+.ck input { width: 26px; height: 26px; flex: none; }
+.ck.done span { color: var(--muted); text-decoration: line-through; }
+.store { font-weight: 700; margin-top: 12px; font-size: 16px; color: var(--green); }
+.state { font-size: 18px; font-weight: 700; margin-top: 10px; }
+.state.done { color: var(--green); } .state.help { color: var(--red); }
+.notice { background: #fff8e1; border: 2px solid var(--gold); }
+details summary { cursor: pointer; color: var(--blue); font-size: 16px; margin-top: 8px; }
+pre.mail { font-size: 15px; }
+input, textarea { font-size: 17px; padding: 10px 12px; }
+.field { margin: 10px 0; }
+.field label { display: block; font-size: 15px; color: var(--muted); margin-bottom: 4px; }
+.field .last { float: right; font-size: 13px; }
+.section-title { font-size: 15px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 26px 0 0; }
+.call { display: block; text-align: center; font-size: 18px; margin-top: 26px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><p class="muted">Loading...</p></div>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+const tok = new URLSearchParams(location.search).get('t');
+const app = document.getElementById('app');
+let V = null;
+const call = (method, path, body) => request(method, `/p/${tok}${path}`, body);
+
+async function load() {
+  try { V = await call('GET', ''); draw(); }
+  catch (e) { app.innerHTML = `<h1>Sorry</h1><p>${esc(e.message)}</p>`; }
+}
+
+function draw() {
+  const tz = V.event.timezone;
+  const open = V.tasks.filter(t => !['done'].includes(t.status));
+  const done = V.tasks.filter(t => t.status === 'done');
+  const pending = V.broadcasts.filter(b => !b.acked);
+  app.innerHTML = `
+    <h1>Hi ${esc(V.me.first)}!</h1>
+    <div class="sub">${esc(V.event.name)}<br>${fmt.ymd(V.event.date)} - ${esc(V.event.venue)}</div>
+    ${pending.map(b => `<div class="card notice"><h2>Update</h2><p>${esc(b.text)}</p><button class="big alt" data-ack="${b.id}">Got it</button></div>`).join('')}
+    ${open.length ? '' : `<div class="card"><h2>You're all set - thank you!</h2><p class="muted">Nothing is waiting for you right now. We'll let you know if anything comes up.</p></div>`}
+    ${open.map(t => taskCard(t, tz)).join('')}
+    ${V.canUploadReceipts ? receiptsCard() : ''}
+    ${V.shifts.length ? `<div class="section-title">Your volunteer time slots</div>${V.shifts.map(s => `<div class="card"><b>${esc(s.name)}</b><div class="due">${fmt.dt(s.startAt, tz)} - ${fmt.time(s.endAt, tz)}</div></div>`).join('')}
+      <p class="muted" style="font-size:15px">Can't make it? Please call ${esc(V.coordinator?.name || 'the coordinator')}.</p>` : ''}
+    ${done.length ? `<div class="section-title">Done - thank you!</div>${done.map(t => `<div class="card" style="opacity:.75"><b>${esc(t.title)}</b><div class="state done">Done</div></div>`).join('')}` : ''}
+    ${V.coordinator ? `<a class="call" href="tel:${esc((V.coordinator.phone || '').replace(/[^\d+]/g, ''))}">Questions? Call ${esc(V.coordinator.name)}<br><b>${esc(V.coordinator.phone || '')}</b></a>` : ''}`;
+  bind();
+}
+
+function taskCard(t, tz) {
+  const stores = [...new Set(V.shopping.filter(i => t.shoppingStores.includes(i.store)).map(i => i.store))];
+  const list = stores.map(s => `<div class="store">${esc(s)}</div>${V.shopping.filter(i => i.store === s).map(i => `
+      <label class="ck ${i.bought ? 'done' : ''}"><input type="checkbox" data-shop="${i.id}" ${i.bought ? 'checked' : ''}><span><b>${esc(i.qty)}</b> - ${esc(i.name)}</span></label>`).join('')}`).join('');
+  const checks = t.checklist.map(c => `<label class="ck ${t.checks[c.id] ? 'done' : ''}"><input type="checkbox" data-check="${t.id}:${c.id}" ${t.checks[c.id] ? 'checked' : ''}><span>${esc(c.text)}</span></label>`).join('');
+  const results = t.kind === 'results' && V.resultsForm ? resultsForm() : '';
+  return `<div class="card"><h2>${esc(t.title)}</h2><div class="due">Please by ${fmt.dateLong(t.dueAt, tz)}</div>
+    ${checks ? `<div style="margin-top:10px">${checks}</div>` : ''}${list}${results}
+    <details><summary>Read the full message</summary><pre class="mail" style="margin-top:8px">${linkify(t.message)}</pre></details>
+    ${t.status === 'help' ? `<div class="state help">We got your request - ${esc(V.coordinator?.name || 'the coordinator')} will call you.</div>` : ''}
+    ${t.kind === 'results' ? '' : `<button class="big ok" data-done="${t.id}">Done</button>`}
+    <button class="big help" data-help="${t.id}">I need help</button></div>`;
+}
+
+function resultsForm() {
+  return `<form id="results">${V.resultsForm.map(g => `<div class="store">${esc(g.group)}</div>${g.fields.map(f => `<div class="field"><label>${esc(f.label)} <span class="last">last year: ${f.last === '?' ? 'not counted' : esc(f.last)}</span></label>
+    <input name="${f.key}" value="${esc(V.results?.[f.key] ?? '')}" inputmode="text" required></div>`).join('')}`).join('')}
+    <div class="field"><label>Anything we should do differently next year?</label><textarea name="lessons" rows="3">${esc(V.lessons || '')}</textarea></div>
+    <button class="big ok">Send results</button></form>`;
+}
+
+function receiptsCard() {
+  return `<div class="card"><h2>Receipts</h2><p class="muted" style="margin:4px 0">Take a photo of each receipt. We'll reimburse you.</p>
+    ${V.expenses.map(x => `<div class="ck"><span>${esc(x.vendor)} - <b>${fmt.money(x.amount)}</b> ${x.hasReceipt ? '(photo)' : ''}</span></div>`).join('')}
+    <form id="receipt"><div class="field"><label>Store</label><input name="vendor" required placeholder="e.g. Sam's"></div>
+    <div class="field"><label>Amount ($)</label><input name="amount" type="number" step="0.01" inputmode="decimal" required></div>
+    <div class="field"><label>Photo of the receipt</label><input name="photo" type="file" accept="image/*" capture="environment"></div>
+    <button class="big ok">Add receipt</button></form></div>`;
+}
+
+function bind() {
+  app.querySelectorAll('[data-done]').forEach(b => b.onclick = () => answer(b.dataset.done, 'done'));
+  app.querySelectorAll('[data-help]').forEach(b => b.onclick = () => {
+    const note = prompt('What do you need help with? (optional)') ?? null;
+    if (note !== null) answer(b.dataset.help, 'help', note);
+  });
+  app.querySelectorAll('[data-ack]').forEach(b => b.onclick = async () => { V = await call('POST', `/broadcasts/${b.dataset.ack}/ack`); toast('Thank you!'); draw(); });
+  app.querySelectorAll('[data-check]').forEach(c => c.onchange = async () => {
+    const [tid, itemId] = c.dataset.check.split(':');
+    c.parentElement.classList.toggle('done', c.checked);
+    try { await call('POST', `/tasks/${tid}/checks`, { itemId, checked: c.checked }); } catch (e) { toast(e.message, true); }
+  });
+  app.querySelectorAll('[data-shop]').forEach(c => c.onchange = async () => {
+    c.parentElement.classList.toggle('done', c.checked);
+    try { await call('POST', `/shopping/${c.dataset.shop}`, { bought: c.checked }); V.shopping.find(i => i.id === c.dataset.shop).bought = c.checked; } catch (e) { toast(e.message, true); }
+  });
+  const rf = document.getElementById('results');
+  if (rf) rf.onsubmit = async e => {
+    e.preventDefault();
+    const f = Object.fromEntries(new FormData(rf));
+    const bad = Object.entries(f).filter(([k, v]) => k !== 'lessons' && (!v.trim() || v.includes('?')));
+    if (bad.length) return toast('Please fill in every box (no question marks).', true);
+    const lessons = f.lessons; delete f.lessons;
+    await call('POST', '/results', { fields: f, lessons });
+    const t = V.tasks.find(x => x.kind === 'results');
+    V = await call('POST', `/tasks/${t.id}`, { status: 'done' });
+    toast('Results sent - thank you!'); draw();
+  };
+  const rc = document.getElementById('receipt');
+  if (rc) rc.onsubmit = async e => {
+    e.preventDefault();
+    const fd = new FormData(rc); const file = fd.get('photo');
+    const btn = rc.querySelector('button'); btn.disabled = true; btn.textContent = 'Uploading...';
+    try {
+      const image = file && file.size ? await fileToDataUrl(file) : null;
+      V = await call('POST', '/expenses', { vendor: fd.get('vendor'), amount: fd.get('amount'), image });
+      toast('Receipt added - thank you!'); draw();
+    } catch (err) { toast(err.message, true); btn.disabled = false; btn.textContent = 'Add receipt'; }
+  };
+}
+
+async function answer(tid, status, note = '') {
+  try { V = await call('POST', `/tasks/${tid}`, { status, note }); toast(status === 'done' ? 'Thank you!' : 'We will call you soon.'); draw(); }
+  catch (e) { toast(e.message, true); }
+}
+load();
+</script>
+</body>
+</html>
