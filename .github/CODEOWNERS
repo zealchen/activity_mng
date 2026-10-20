@@ -1,0 +1,7 @@
+# Default owner for everything.
+*                     @zealchen
+
+# Infrastructure and CI - deploys to AWS.
+/infra/               @zealchen
+/scripts/             @zealchen
+/.github/workflows/   @zealchen

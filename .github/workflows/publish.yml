@@ -1,0 +1,65 @@
+name: Publish
+
+# Deploys dev (the only cloud environment for now).
+#
+#   workflow_dispatch - always allowed (Actions -> Publish -> Run workflow).
+#   push to main      - gated by the repo Variable AUTO_PUBLISH. Default "false":
+#                       a merge does nothing and dev updates only on a dispatch.
+#                       Set it to "true" for merge-to-deploy.
+#
+# The pipeline itself (checks -> terraform plan -> high-risk gate -> apply ->
+# smoke) lives in the reusable _deploy.yml; this file only decides whether to run it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      allow_destroy:
+        description: Override the high-risk gate - allow deleting/replacing the DynamoDB table or an S3 bucket (DATA LOSS)
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write # AWS OIDC role assumption
+
+jobs:
+  gate:
+    name: Publish gate (AUTO_PUBLISH)
+    runs-on: ubuntu-latest
+    outputs:
+      should_publish: ${{ steps.decide.outputs.should_publish }}
+      allow_destroy: ${{ steps.ovr.outputs.allow_destroy }}
+    steps:
+      - id: decide
+        env:
+          AUTO_PUBLISH: ${{ vars.AUTO_PUBLISH }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          should_publish=false
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            should_publish=true
+          elif [[ "$AUTO_PUBLISH" == "true" ]]; then
+            should_publish=true
+          else
+            echo "AUTO_PUBLISH=$AUTO_PUBLISH -> skipping push-driven publish (manual-only mode)"
+          fi
+          echo "should_publish=$should_publish" >> "$GITHUB_OUTPUT"
+
+      # True when a dispatch ticks allow_destroy, or the pushed HEAD commit
+      # message carries [tf-allow-destroy]. An expression, so the raw commit
+      # message is never interpolated into bash.
+      - id: ovr
+        run: echo "allow_destroy=${{ (github.event_name == 'workflow_dispatch' && inputs.allow_destroy) || contains(github.event.head_commit.message, '[tf-allow-destroy]') }}" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: gate
+    if: needs.gate.outputs.should_publish == 'true'
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      ref: ${{ github.sha }}
+      allow_destroy: ${{ needs.gate.outputs.allow_destroy == 'true' }}
+    secrets: inherit
