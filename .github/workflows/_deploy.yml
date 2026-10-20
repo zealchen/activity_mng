@@ -1,0 +1,147 @@
+name: _deploy (reusable)
+
+# checks -> terraform plan -> high-risk gate -> apply -> smoke, for dev.
+# Terraform owns the whole deploy: the Lambda code is zipped from backend/ and
+# the web files are S3 objects, so an apply IS the release.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref (branch/sha) whose code is deployed.
+        type: string
+        required: true
+      allow_destroy:
+        description: Allow deleting/replacing the DynamoDB table or an S3 bucket (DATA LOSS).
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  checks:
+    name: Pre-deploy checks
+    uses: ./.github/workflows/_checks.yml
+    with:
+      ref: ${{ inputs.ref }}
+    secrets: inherit
+
+  deploy:
+    name: Deploy dev
+    needs: checks
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      WORKDIR: infra/cloud/dev
+      TF_VAR_admin_key: ${{ secrets.ADMIN_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Resolve AWS region from tfvars
+        run: |
+          set -euo pipefail
+          region="$(awk -F'[ \t]*=[ \t]*' '$1 == "aws_region" {gsub(/[" ]/,"",$2); print $2}' "$WORKDIR/terraform.tfvars")"
+          [ -n "$region" ] || { echo "::error::could not read aws_region from $WORKDIR/terraform.tfvars"; exit 1; }
+          echo "AWS_REGION=$region" >> "$GITHUB_ENV"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.3
+          terraform_wrapper: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install backend runtime dependencies
+        working-directory: backend
+        run: npm ci --omit=dev --no-audit --no-fund
+
+      - name: Terraform init
+        working-directory: ${{ env.WORKDIR }}
+        run: terraform init -backend-config=backend.hcl -input=false
+
+      - name: Terraform plan
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          set -euo pipefail
+          terraform plan -input=false -lock-timeout=120s -var-file=terraform.tfvars -out=tfplan
+          terraform show -no-color tfplan > plan.txt
+          terraform show -json tfplan > plan.json
+
+      - name: Upload plan (audit)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tf-plan-dev-${{ github.run_id }}
+          path: |
+            ${{ env.WORKDIR }}/plan.json
+            ${{ env.WORKDIR }}/plan.txt
+          retention-days: 30
+
+      # Refuse a plan that deletes/replaces the table or a bucket (every event,
+      # person, message and receipt) unless explicitly overridden.
+      - name: High-risk gate (stateful delete/replace)
+        working-directory: ${{ env.WORKDIR }}
+        env:
+          ALLOW_DESTROY: ${{ inputs.allow_destroy }}
+        run: |
+          set -euo pipefail
+          risky=$(jq -r '
+            [ .resource_changes[]
+              | select(.change.actions | index("delete"))
+              | select(.type | test("^aws_(dynamodb_table|s3_bucket)$"))
+              | "\(.change.actions | join("+"))  \(.address)"
+            ] | unique | .[]' plan.json || true)
+          if [ -z "$risky" ]; then
+            echo "No stateful delete/replace in the dev plan."
+            exit 0
+          fi
+          { echo "## High-risk Terraform plan - dev"; echo '```'; echo "$risky"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' "$risky"
+          if [ "$ALLOW_DESTROY" = "true" ]; then
+            echo "Override present (allow_destroy=true) - proceeding."
+          else
+            echo "::error::Refusing to apply: stateful delete/replace in dev (DATA LOSS). Tick allow_destroy on a manual run, or put [tf-allow-destroy] in the commit message."
+            exit 1
+          fi
+
+      - name: Terraform apply
+        working-directory: ${{ env.WORKDIR }}
+        run: terraform apply -input=false tfplan
+
+      - name: Capture Terraform outputs
+        id: tf
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          echo "api_base_url=$(terraform output -raw api_base_url)" >> "$GITHUB_OUTPUT"
+          echo "web_url=$(terraform output -raw web_url)" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test API
+        env:
+          API_BASE_URL: ${{ steps.tf.outputs.api_base_url }}
+          WEB_URL: ${{ steps.tf.outputs.web_url }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 5); do
+            if curl -fsS -m 10 "$API_BASE_URL/health"; then
+              echo
+              { echo "## Deployed dev"; echo "- Dashboard: $WEB_URL"; echo "- API: $API_BASE_URL"; } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "Attempt $i failed; retrying in 10s"; sleep 10
+          done
+          echo "::error::API /health never returned 200 at $API_BASE_URL"; exit 1

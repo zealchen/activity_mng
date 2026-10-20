@@ -1,0 +1,147 @@
+name: PR
+
+# Every pull request into main: the reusable gate (_checks.yml) plus a
+# speculative terraform plan of dev, posted as a sticky comment. The plan is
+# informational - it never applies anything.
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    uses: ./.github/workflows/_checks.yml
+    secrets: inherit
+
+  terraform-plan:
+    name: Terraform plan (dev)
+    runs-on: ubuntu-latest
+    # Pulls the env-scoped AWS_DEPLOY_ROLE_ARN / ADMIN_KEY; the OIDC trust only
+    # accepts the "dev" environment subject.
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    env:
+      WORKDIR: infra/cloud/dev
+      TF_VAR_admin_key: ${{ secrets.ADMIN_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Dev is only plannable once scripts/bootstrap-cloud.sh has created the
+      # deploy role and set this secret. Skip and say so instead of a red check.
+      - name: Is dev provisioned?
+        id: provisioned
+        env:
+          DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          if [ -z "$DEPLOY_ROLE_ARN" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Skipping dev plan::No AWS_DEPLOY_ROLE_ARN in the 'dev' GitHub Environment - run scripts/bootstrap-cloud.sh first."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve AWS region from tfvars
+        if: steps.provisioned.outputs.ready == 'true'
+        run: |
+          region="$(awk -F'[ \t]*=[ \t]*' '$1 == "aws_region" {gsub(/[" ]/,"",$2); print $2}' "$WORKDIR/terraform.tfvars")"
+          echo "AWS_REGION=$region" >> "$GITHUB_ENV"
+
+      - name: Configure AWS credentials (OIDC)
+        if: steps.provisioned.outputs.ready == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        if: steps.provisioned.outputs.ready == 'true'
+        with:
+          terraform_version: 1.14.3
+          terraform_wrapper: false
+
+      - uses: actions/setup-node@v4
+        if: steps.provisioned.outputs.ready == 'true'
+        with:
+          node-version: 22
+
+      # The Lambda zip is built from backend/ including node_modules.
+      - name: Install backend runtime dependencies
+        if: steps.provisioned.outputs.ready == 'true'
+        working-directory: backend
+        run: npm ci --omit=dev --no-audit --no-fund
+
+      - name: Terraform init
+        if: steps.provisioned.outputs.ready == 'true'
+        working-directory: ${{ env.WORKDIR }}
+        run: terraform init -backend-config=backend.hcl -input=false
+
+      - name: Terraform plan
+        if: steps.provisioned.outputs.ready == 'true'
+        working-directory: ${{ env.WORKDIR }}
+        # -lock=false: read-only; never contend with a real deploy's state lock.
+        run: |
+          set -euo pipefail
+          terraform plan -input=false -lock=false -var-file=terraform.tfvars -out=tfplan
+          terraform show -no-color tfplan > plan.txt
+          terraform show -json tfplan > plan.json
+
+      - name: Flag high-risk stateful changes
+        if: steps.provisioned.outputs.ready == 'true'
+        id: risk
+        working-directory: ${{ env.WORKDIR }}
+        # Mirrors _deploy.yml's apply-time gate.
+        run: |
+          set -euo pipefail
+          risky=$(jq -r '
+            [ .resource_changes[]
+              | select(.change.actions | index("delete"))
+              | select(.type | test("^aws_(dynamodb_table|s3_bucket)$"))
+              | "\(.change.actions | join("+"))  \(.address)"
+            ] | unique | .[]' plan.json || true)
+          {
+            if [ -n "$risky" ]; then
+              echo "high_risk=true"
+              echo "summary<<RISK_EOF"; echo "$risky"; echo "RISK_EOF"
+              echo "::warning title=High-risk Terraform plan (dev)::Stateful delete/replace - confirm before merge."
+            else
+              echo "high_risk=false"
+            fi
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Post plan summary to PR
+        if: steps.provisioned.outputs.ready == 'true'
+        uses: actions/github-script@v7
+        env:
+          HIGH_RISK: ${{ steps.risk.outputs.high_risk }}
+          RISK_SUMMARY: ${{ steps.risk.outputs.summary }}
+        with:
+          script: |
+            const fs = require('fs');
+            const MARKER = '<!-- tf-plan-dev -->';
+            // Move terraform's leading +/-/~ markers to column 0 so GitHub's diff
+            // renderer colours destroys red and creates green.
+            const diffify = (t) => t.split('\n').map((l) => l.replace(/^( *)([-+~])/, '$2$1')).join('\n');
+            let plan = fs.readFileSync(`${process.env.WORKDIR}/plan.txt`, 'utf8');
+            const MAX = 60000;
+            if (plan.length > MAX) plan = plan.slice(0, MAX) + '\n... (truncated)';
+            const risky = (process.env.RISK_SUMMARY || '').trim();
+            const riskBlock = process.env.HIGH_RISK === 'true'
+              ? `> [!CAUTION]\n> **High-risk infra change - possible DATA LOSS.** The DynamoDB table or an S3 bucket is deleted/replaced.\n\n\`\`\`diff\n${risky.split('\n').map((l) => `- ${l}`).join('\n')}\n\`\`\``
+              : '> [!NOTE]\n> No stateful delete/replace detected.';
+            const body = [
+              MARKER, '## Terraform plan - `dev`', '', riskBlock, '',
+              '<details><summary>Full plan output</summary>', '', '```diff', diffify(plan), '```', '', '</details>',
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.find((c) => c.body && c.body.includes(MARKER));
+            if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            else await github.rest.issues.createComment({ owner, repo, issue_number, body });

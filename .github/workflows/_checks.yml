@@ -1,0 +1,56 @@
+name: Checks (reusable)
+
+# The validation gate. Called from:
+#   - pr.yml on every pull request
+#   - _deploy.yml before every deploy
+# One job per check so a failure shows up as its own red dot.
+# The LocalStack e2e suite needs LocalStack Pro, so it runs locally only
+# (scripts/up.sh, then e2e/flow.test.mjs - see README).
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref (branch/sha) to check out and validate. Empty = the event's ref.
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 22
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: npm ci + test
+        working-directory: backend
+        run: |
+          npm ci --no-audit --no-fund
+          npm test
+
+  terraform:
+    name: Terraform fmt + validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.3
+          terraform_wrapper: false
+      - name: tf-check (fmt + validate over infra/**)
+        run: bash scripts/tf-check.sh
