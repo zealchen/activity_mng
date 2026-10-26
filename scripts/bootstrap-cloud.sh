@@ -79,6 +79,9 @@ else
     --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
   aws s3api put-public-access-block --bucket "$STATE_BUCKET" \
     --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+  # Same Project/Environment tags as the Terraform default_tags, for cost allocation.
+  aws s3api put-bucket-tagging --bucket "$STATE_BUCKET" \
+    --tagging "TagSet=[{Key=Project,Value=$PROJECT},{Key=Environment,Value=dev},{Key=ManagedBy,Value=bootstrap-cloud.sh}]"
 fi
 
 if [ -z "${TF_VAR_admin_key:-}" ]; then
