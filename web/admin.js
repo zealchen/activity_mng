@@ -249,6 +249,7 @@ function pOverview(el) {
         ${b.event.lastYear?.notes?.length ? `<h3 style="margin-top:16px">Notes from ${b.event.lastYear.year}</h3><ul class="small" style="padding-left:18px;margin:0">${b.event.lastYear.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
       </div>
     </div>
+    ${gantt()}
     <div class="card" style="margin-top:14px"><h3>Recent activity</h3>
       ${activity.map(l => `<div class="row" data-task="${l.t.id}" style="cursor:pointer"><span class="small" style="width:150px">${fmt.dt(l.at, tz())}</span><span class="grow">${esc(l.text)} <span class="small">- ${esc(l.t.title)}</span></span></div>`).join('') || '<div class="muted">Nothing yet.</div>'}
     </div>`;
@@ -263,6 +264,39 @@ function pOverview(el) {
   if (all) all.onclick = () => confirm(`Send ${readyCount} emails for ${ready.length} tasks now?`) && send('/send', { which: 'ready' }, 'email(s)');
   const ra = document.getElementById('remindAll');
   if (ra) ra.onclick = () => confirm(`Send ${remind.length} reminders now?`) && send('/send', { which: 'remind' }, 'reminder(s)');
+}
+
+/** Every task as a bar from send to due, grouped by phase, with "now" and event-day markers. */
+function gantt() {
+  const b = A.b;
+  if (!b.tasks.length) return '';
+  const eventDay = Date.parse(b.event.date + 'T12:00:00Z');
+  const t0 = Math.min(...b.tasks.map(t => Date.parse(t.sendAt))) - 864e5;
+  const t1 = Math.max(eventDay, ...b.tasks.map(t => Date.parse(t.dueAt))) + 864e5;
+  const x = ms => ((ms - t0) / (t1 - t0) * 100).toFixed(2);
+  const per = Math.ceil((t1 - t0) / 864e5 / 8); // about 8 date labels across
+  const step = per > 3 ? Math.ceil(per / 7) * 7 : per;
+  const ticks = [];
+  for (let d = eventDay; d >= t0; d -= step * 864e5) ticks.push(d);
+  for (let d = eventDay + step * 864e5; d <= t1; d += step * 864e5) ticks.push(d);
+  const now = Date.parse(nowIso());
+  const marker = (ms, cls, label) => ms >= t0 && ms <= t1 ? `<div class="g-mark ${cls}" style="left:${x(ms)}%" title="${label}"></div>` : '';
+  const markers = marker(now, 'now', 'Now') + marker(eventDay, 'ev', 'Event day');
+  const row = t => {
+    const s = taskStatus(t), a = Date.parse(t.sendAt), z = Date.parse(t.dueAt);
+    return `<div class="g-row" data-task="${t.id}"><div class="g-label" title="${esc(t.title)}">${esc(t.title)}</div>
+      <div class="g-track">${markers}<div class="g-bar d-${s}${overdue(t) ? ' late' : ''}" style="left:${x(a)}%;width:${x(t0 + z - a)}%"
+        title="${esc(t.title)} - ${STATUS[s] || s}: ${fmt.date(t.sendAt, tz())} to ${fmt.date(t.dueAt, tz())}"></div></div></div>`;
+  };
+  return `<div class="card" style="margin-top:14px"><h3>Timeline</h3>
+    <div class="gantt">
+      <div class="g-row g-axis"><div class="g-label"></div><div class="g-track">${ticks.map(d => `<span style="left:${x(d)}%">${d === eventDay ? 'Event' : fmt.date(new Date(d).toISOString(), 'UTC').replace(/^\w+, /, '')}</span>`).join('')}</div></div>
+      ${b.event.phases.map(ph => {
+        const ts = b.tasks.filter(t => t.phase === ph);
+        return ts.length ? `<div class="g-phase">${esc(ph)}</div>${ts.map(row).join('')}` : '';
+      }).join('')}
+    </div>
+    <div class="small" style="margin-top:8px"><i class="g-key now"></i> Now <i class="g-key ev"></i> Event day - bars run from send to due; click one to open the task.</div></div>`;
 }
 
 function chips(t) {

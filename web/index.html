@@ -31,6 +31,23 @@ main { padding: 0 28px 60px; min-width: 0; }
 .task.future { opacity: .62; }
 .task .when { font-weight: 600; font-size: 13px; }
 .task .when span { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
+.gantt { font-size: 12px; }
+.g-row { display: grid; grid-template-columns: 220px 1fr; align-items: center; cursor: pointer; }
+.g-row:hover .g-label { color: var(--green); }
+.g-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
+.g-track { position: relative; height: 22px; border-left: 1px solid var(--line); }
+.g-bar { position: absolute; top: 5px; height: 12px; min-width: 4px; border-radius: 4px; }
+.g-bar.d-scheduled { background: #c9c5bb; }
+.g-bar.late { box-shadow: 0 0 0 2px var(--red); }
+.g-axis { cursor: default; border-bottom: 1px solid var(--line); }
+.g-axis .g-track { height: 20px; border-left: 0; }
+.g-axis span { position: absolute; transform: translateX(-50%); color: var(--muted); font-size: 11px; white-space: nowrap; }
+.g-phase { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin: 10px 0 2px; }
+.g-mark { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid var(--blue); z-index: 1; }
+.g-mark.ev { border-left: 2px dashed var(--gold); }
+.g-key { display: inline-block; width: 12px; height: 0; border-top: 2px solid var(--blue); vertical-align: middle; margin-left: 4px; }
+.g-key.ev { border-top: 2px dashed var(--gold); }
+@media (max-width: 1000px) { .g-row { grid-template-columns: 140px 1fr; } }
 .overdue { color: var(--red); font-size: 11px; font-weight: 600; margin-left: 6px; }
 .filters { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
 .filters .btn.on { background: var(--ink); color: #fff; border-color: var(--ink); }
