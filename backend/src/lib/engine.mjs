@@ -205,7 +205,7 @@ export function playbookFromEvent({ event, tasks, shifts, shopping, results }, b
       };
     }),
     shifts: shifts.map(s => ({ key: s.key, name: s.name, day: s.day, start: s.start, end: s.end, need: s.need })),
-    shopping: shopping.map(i => ({ store: i.store, name: i.name, lastQty: i.qty, qty: i.qty, note: '' })),
+    shopping: shopping.map(i => ({ store: i.store, name: i.name, lastQty: i.qty, qty: i.qty, note: i.note || '' })),
     resultsForm: (event.resultsForm || []).map(g => ({ ...g, fields: g.fields.map(f => ({ ...f, last: results?.fields?.[f.key] ?? '?' })) })),
     lastYear: {
       year: Number(event.date.slice(0, 4)),
