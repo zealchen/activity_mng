@@ -139,8 +139,10 @@ test('reassign keeps progress for people who stay', () => {
 
 test('playbookFromEvent round-trips offsets and carries results forward', () => {
   const b = make();
+  b.shopping[0].note = 'Buy early';
   const pb2 = playbookFromEvent({ ...b, results: { fields: { party: '128', water: '20' }, expenses: [{ amount: 700.5 }], lessons: 'Buy 6 hot dog buns\nMore ice' } }, pb);
   assert.equal(pb2.version, 2);
+  assert.equal(pb2.shopping[0].note, 'Buy early');
   assert.deepEqual(pb2.tasks.map(t => [t.key, t.send, t.due]), pb.tasks.map(t => [t.key, t.send, t.due]));
   assert.equal(pb2.defaults.guests, 128);
   assert.equal(pb2.resultsForm[1].fields[0].last, '20');

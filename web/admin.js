@@ -736,22 +736,24 @@ function pShopping(el) {
       <button class="btn sm noprint" style="margin-left:auto" onclick="window.print()">Print</button></div>
     <p class="lead">Quantities start from the playbook (already adjusted from last year's leftovers - highlighted). The shopper ticks items off on their phone.</p>
     ${stores.map(s => `<div class="card" style="margin-bottom:14px"><h3>${esc(s)}</h3><table>
-      <tr><th style="width:38px">Got</th><th>Item</th><th>Last year</th><th style="width:150px">This year</th><th>Why</th><th class="noprint"></th></tr>
+      <tr><th style="width:38px">Got</th><th>Item</th><th>Last year</th><th style="width:150px">This year</th><th>Note</th><th class="noprint"></th></tr>
       ${items.filter(i => i.store === s).map(i => `<tr class="${i.qty !== i.lastQty && i.lastQty ? 'changed' : ''}">
         <td><input type="checkbox" data-bought="${i.id}" ${i.bought ? 'checked' : ''} title="${i.boughtBy ? 'by ' + esc(P(i.boughtBy).name || i.boughtBy) : ''}"></td>
         <td>${esc(i.name)}${i.bought && i.boughtBy ? `<div class="small">bought by ${esc(i.boughtBy === 'coordinator' ? 'you' : P(i.boughtBy).name)}</div>` : ''}</td>
         <td class="qty-old">${esc(i.lastQty || '')}</td>
         <td><input value="${esc(i.qty)}" data-qty="${i.id}" style="padding:3px 7px"></td>
-        <td class="small">${esc(i.note || '')}</td>
+        <td><input value="${esc(i.note || '')}" data-note="${i.id}" style="padding:3px 7px"></td>
         <td class="noprint"><button class="btn sm danger" data-del="${i.id}">x</button></td></tr>`).join('')}
     </table></div>`).join('')}
     <form class="card noprint" id="addItem" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
       <div class="field"><label>Store</label><input name="store" list="stores" required></div><datalist id="stores">${stores.map(s => `<option value="${esc(s)}">`).join('')}</datalist>
       <div class="field" style="flex:2"><label>Item</label><input name="name" required></div>
       <div class="field"><label>Quantity</label><input name="qty"></div>
+      <div class="field" style="flex:2"><label>Note</label><input name="note"></div>
       <button class="btn primary">Add item</button></form>`;
   el.querySelectorAll('[data-bought]').forEach(c => c.onchange = async () => { await act(() => api('PUT', `/admin/events/${A.eid}/shopping/${c.dataset.bought}`, { bought: c.checked })); await load(); });
   el.querySelectorAll('[data-qty]').forEach(i => i.onchange = async () => { await act(() => api('PUT', `/admin/events/${A.eid}/shopping/${i.dataset.qty}`, { qty: i.value }), 'Saved'); await load(); });
+  el.querySelectorAll('[data-note]').forEach(i => i.onchange = async () => { await act(() => api('PUT', `/admin/events/${A.eid}/shopping/${i.dataset.note}`, { note: i.value }), 'Saved'); await load(); });
   el.querySelectorAll('[data-del]').forEach(bt => bt.onclick = async () => { if (!confirm('Remove this item?')) return; await act(() => api('DELETE', `/admin/events/${A.eid}/shopping/${bt.dataset.del}`)); await load(); });
   document.getElementById('addItem').onsubmit = async e => { e.preventDefault(); await act(() => api('POST', `/admin/events/${A.eid}/shopping`, Object.fromEntries(new FormData(e.target))), 'Added'); await load(); };
 }

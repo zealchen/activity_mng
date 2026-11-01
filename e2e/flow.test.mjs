@@ -195,6 +195,15 @@ test('shopping list on the personal page', async () => {
   assert.equal(s.shopping.find(i => i.name.startsWith('Hormel chili')).qty, '0');
 });
 
+test('shopping note: set on add, edited later, shown on the personal page', async () => {
+  const added = await call('POST', `/admin/events/${eid}/shopping`, { store: "Sam's - Dry Goods", name: 'Foil pans', qty: '4', note: 'Deep ones' });
+  assert.equal(added.note, 'Deep ones');
+  await call('PUT', `/admin/events/${eid}/shopping/${added.id}`, { note: 'Deep ones only' });
+  const tok = (await state()).event.tokens[ppl.worker.id];
+  const v = await call('GET', `/p/${tok}`, null, false);
+  assert.equal(v.shopping.find(i => i.id === added.id).note, 'Deep ones only');
+});
+
 test('announcement: sent when the coordinator presses Send, confirmation by text', async () => {
   const bc = await call('POST', `/admin/events/${eid}/broadcasts`, { text: 'Set-up moves to 2:30 PM.', pids: [ppl.worker.id, ppl.landline.id] });
   const sms = await waitFor(async () => (await msgs()).find(x => x.broadcastId === bc.id && x.channel === 'sms'), 'broadcast sms');
@@ -319,6 +328,7 @@ test('save as next year\'s playbook', async () => {
   assert.deepEqual(pb.lastYear.notes, ['Rice: 10 lb was right', 'One more water case']);
   assert.equal(pb.tasks.find(t => t.key === 'knights-save-the-date').send, -30);
   assert.ok(pb.roles.some(r => r.name === 'Ushers'), 'added roles carry into next year');
+  assert.equal(pb.shopping.find(i => i.name === 'Foil pans').note, 'Deep ones only', 'shopping notes carry into next year');
 });
 
 test('admin endpoints reject a wrong key', async () => {

@@ -20,6 +20,7 @@ h1 { font-size: 28px; margin: 6px 0 2px; }
 .ck { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid #f0eee8; font-size: 17px; cursor: pointer; }
 .ck input { width: 26px; height: 26px; flex: none; }
 .ck.done span { color: var(--muted); text-decoration: line-through; }
+.ck .note { display: block; font-size: 15px; color: var(--muted); }
 .store { font-weight: 700; margin-top: 12px; font-size: 16px; color: var(--green); }
 .state { font-size: 18px; font-weight: 700; margin-top: 10px; }
 .state.done { color: var(--green); } .state.help { color: var(--red); }
@@ -71,7 +72,7 @@ function draw() {
 function taskCard(t, tz) {
   const stores = [...new Set(V.shopping.filter(i => t.shoppingStores.includes(i.store)).map(i => i.store))];
   const list = stores.map(s => `<div class="store">${esc(s)}</div>${V.shopping.filter(i => i.store === s).map(i => `
-      <label class="ck ${i.bought ? 'done' : ''}"><input type="checkbox" data-shop="${i.id}" ${i.bought ? 'checked' : ''}><span><b>${esc(i.qty)}</b> - ${esc(i.name)}</span></label>`).join('')}`).join('');
+      <label class="ck ${i.bought ? 'done' : ''}"><input type="checkbox" data-shop="${i.id}" ${i.bought ? 'checked' : ''}><span><b>${esc(i.qty)}</b> - ${esc(i.name)}${i.note ? `<span class="note">${esc(i.note)}</span>` : ''}</span></label>`).join('')}`).join('');
   const checks = t.checklist.map(c => `<label class="ck ${t.checks[c.id] ? 'done' : ''}"><input type="checkbox" data-check="${t.id}:${c.id}" ${t.checks[c.id] ? 'checked' : ''}><span>${esc(c.text)}</span></label>`).join('');
   const results = t.kind === 'results' && V.resultsForm ? resultsForm() : '';
   return `<div class="card"><h2>${esc(t.title)}</h2><div class="due">Please by ${fmt.dateLong(t.dueAt, tz)}</div>
