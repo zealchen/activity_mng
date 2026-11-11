@@ -42,15 +42,9 @@ function needsAttention(t) {
 }
 /** [{t, pid, a}] for every assignee in one of `statuses`. */
 const whoIs = (...statuses) => A.b.tasks.flatMap(t => Object.entries(t.assignees).filter(([, a]) => statuses.includes(a.status)).map(([pid, a]) => ({ t, pid, a })));
-async function send(path, body, what) {
-  const r = await act(() => api('POST', `/admin/events/${A.eid}${path}`, body));
-  toast(`${r.sent} ${what} sent${r.skipped.length ? ` - no email for ${r.skipped.join(', ')}: please call` : ''}`, !r.sent);
-  await load();
-}
 const bcMissing = bc => bc.to.filter(pid => !bc.acks[pid]);
 const ackHours = () => A.b.event.policy.broadcastAckHours;
 const smsOn = () => !!A.b.event.policy.sms;
-const noEmailAtAll = p => !(p.email || (smsOn() && p.phone && p.mobile !== false && p.smsOptIn !== false));
 const noEmail = p => !p.email || (p.channels?.length && !p.channels.includes('email'));
 const unreachable = p => (smsOn() ? p.mobile === false || !p.phone || p.smsOptIn === false : true) && noEmail(p);
 const hoursSince = iso => (Date.parse(nowIso()) - Date.parse(iso)) / 36e5;
@@ -209,7 +203,7 @@ function pOverview(el) {
   const callWhy = ({ pid, a }) => a.saved === 'scheduled' ? 'no email - call to tell them' : `no reply in ${b.event.policy.escalateAfterHours}h`;
   el.innerHTML = `
     <div class="page-h"><h2>Overview</h2></div>
-    <p class="lead">Nothing goes out by itself. When a task's time comes it shows up under <b>Ready to send</b> - press Send.
+    <p class="lead">Nothing goes out by itself. When a task's time comes it shows up under <b>Ready to send</b> - open it, copy the email and send it yourself, then press Mark done.
       No reply in ${b.event.policy.remindAfterHours}h: you are asked to send a reminder. No reply in ${b.event.policy.escalateAfterHours}h: you are asked to call.</p>
     <div class="grid stats">
       <div class="card stat"><div class="n" style="color:var(--blue)">${readyCount}</div><div class="l">Ready to send</div></div>
@@ -220,19 +214,17 @@ function pOverview(el) {
       <div class="card stat"><div class="n">${vol}/${need}</div><div class="l">Volunteer spots filled</div></div>
     </div>
     ${ready.length || remind.length ? `<div class="card" style="margin-top:14px">
-      ${ready.length ? `<div style="display:flex;align-items:center;gap:8px"><h3 style="margin:0">Ready to send (${ready.length})</h3>
-        ${ready.length > 1 ? `<button class="btn sm primary" id="sendAllReady" style="margin-left:auto">Send all ${readyCount} emails</button>` : ''}</div>
+      ${ready.length ? `<div style="display:flex;align-items:center;gap:8px"><h3 style="margin:0">Ready to send (${ready.length})</h3></div>
         ${ready.map(t => {
           const to = Object.entries(t.assignees).filter(([, a]) => a.status === 'ready').map(([pid]) => pid);
           return `<div class="row" data-task="${t.id}" style="cursor:pointer"><div class="grow"><b>${esc(t.title)}</b>${overdue(t) ? '<span class="overdue">OVERDUE</span>' : ''}
             <div class="small">To ${to.map(pid => esc(P(pid).name)).join(', ')} - since ${fmt.dt(t.sendAt, tz())}</div></div>
-            <button class="btn sm">Preview</button><button class="btn sm primary" data-send="${t.id}">Send</button></div>`;
+            <button class="btn sm">Open</button></div>`;
         }).join('')}` : ''}
-      ${remind.length ? `<div style="display:flex;align-items:center;gap:8px;${ready.length ? 'margin-top:16px' : ''}"><h3 style="margin:0">No reply in ${b.event.policy.remindAfterHours}h - send a reminder (${remind.length})</h3>
-        ${remind.length > 1 ? `<button class="btn sm primary" id="remindAll" style="margin-left:auto">Remind all ${remind.length}</button>` : ''}</div>
+      ${remind.length ? `<div style="display:flex;align-items:center;gap:8px;${ready.length ? 'margin-top:16px' : ''}"><h3 style="margin:0">No reply in ${b.event.policy.remindAfterHours}h - send a reminder (${remind.length})</h3></div>
         ${remind.map(({ t, pid, a }) => `<div class="row" data-task="${t.id}" style="cursor:pointer"><div class="grow"><b>${esc(P(pid).name)}</b> - ${esc(t.title)}
             <div class="small">Sent ${fmt.dt(a.sentAt, tz())}${P(pid).phoneDisplay ? ` - or call ${esc(P(pid).phoneDisplay)}` : ''}</div></div>
-            <button class="btn sm primary" data-remind="${t.id}:${pid}">Send reminder</button></div>`).join('')}` : ''}
+            <button class="btn sm">Open</button></div>`).join('')}` : ''}
     </div>` : ''}
     <div class="grid cols-2" style="margin-top:14px">
       <div class="card"><h3>Needs your attention (${attention.length + staleBc.length})</h3>
@@ -254,16 +246,6 @@ function pOverview(el) {
       ${activity.map(l => `<div class="row" data-task="${l.t.id}" style="cursor:pointer"><span class="small" style="width:150px">${fmt.dt(l.at, tz())}</span><span class="grow">${esc(l.text)} <span class="small">- ${esc(l.t.title)}</span></span></div>`).join('') || '<div class="muted">Nothing yet.</div>'}
     </div>`;
   bindTaskLinks(el);
-  el.querySelectorAll('[data-send]').forEach(btn => btn.onclick = e => { e.stopPropagation(); send(`/tasks/${btn.dataset.send}/send`, {}, 'email(s)'); });
-  el.querySelectorAll('[data-remind]').forEach(btn => btn.onclick = e => {
-    e.stopPropagation();
-    const [tid, pid] = btn.dataset.remind.split(':');
-    send(`/tasks/${tid}/send`, { pids: [pid] }, 'reminder(s)');
-  });
-  const all = document.getElementById('sendAllReady');
-  if (all) all.onclick = () => confirm(`Send ${readyCount} emails for ${ready.length} tasks now?`) && send('/send', { which: 'ready' }, 'email(s)');
-  const ra = document.getElementById('remindAll');
-  if (ra) ra.onclick = () => confirm(`Send ${remind.length} reminders now?`) && send('/send', { which: 'remind' }, 'reminder(s)');
 }
 
 /** Every task as a bar from send to due, grouped by phase, with "now" and event-day markers. */
@@ -312,7 +294,7 @@ function pTasks(el) {
   const show = t => f === 'all' || (f === 'attention' ? needsAttention(t) : f === 'open' ? started(t) && taskStatus(t) !== 'done' : !started(t));
   el.innerHTML = `<div class="page-h"><h2>Tasks & timeline</h2>
       <span style="margin-left:auto;display:flex;gap:6px"><button class="btn sm" id="exportPdf">Export PDF</button><button class="btn sm primary" id="addTask">+ Add task</button></span></div>
-    <p class="lead">When a task's time comes it is <b>Ready to send</b> - open it and press Send (${smsOn() ? 'text and email' : 'email'}). No reply in ${A.b.event.policy.remindAfterHours}h: you are asked to send a reminder. No reply in ${A.b.event.policy.escalateAfterHours}h: you are asked to call.</p>
+    <p class="lead">When a task's time comes it is <b>Ready to send</b> - open it, copy the email and send it yourself, then press Mark done. No reply in ${A.b.event.policy.remindAfterHours}h: you are asked to send a reminder. No reply in ${A.b.event.policy.escalateAfterHours}h: you are asked to call.</p>
     <div class="filters">${[['all', 'All'], ['attention', 'Needs attention'], ['open', 'Open'], ['future', 'Not sent yet']].map(([k, l]) => `<button class="btn ${f === k ? 'on' : ''}" data-f="${k}">${l}</button>`).join('')}</div>
     ${A.b.event.phases.map(ph => {
       const ts = A.b.tasks.filter(t => t.phase === ph && show(t));
@@ -336,7 +318,6 @@ async function renderDrawer() {
   const t = A.b.tasks.find(x => x.id === A.drawer);
   if (!t) return closeDrawer();
   const pids = Object.keys(t.assignees);
-  const unsent = t.kind === 'coordinator' ? [] : pids.filter(pid => t.assignees[pid].saved === 'scheduled' && !noEmailAtAll(P(pid)));
   if (!A.drawerPid || !t.assignees[A.drawerPid]) A.drawerPid = pids[0] || null;
   const dr = document.getElementById('drawerRoot');
   const tab = A.drawerTab;
@@ -346,13 +327,12 @@ async function renderDrawer() {
     <h2 style="margin:4px 0 8px;font-size:19px">${esc(t.title)}</h2>
     <div>${pill(taskStatus(t))} ${overdue(t) ? '<span class="overdue">OVERDUE</span>' : ''} <span class="small">Role: ${t.roles.map(roleName).join(', ')}</span></div>
     <div class="card" style="margin-top:14px"><div style="display:flex;align-items:center;gap:8px"><h3 style="margin:0">People</h3>
-      ${unsent.length ? `<button class="btn sm primary" id="sendTask" style="margin-left:auto">${started(t) ? 'Send' : 'Send early'} to ${unsent.length === pids.length ? (pids.length > 1 ? 'everyone' : esc(firstOf(P(unsent[0])))) : `${unsent.length} not sent yet`}</button>` : ''}</div>
+    </div>
       ${pids.length ? pids.map(pid => {
         const a = t.assignees[pid], p = P(pid);
         const ch = t.checklist?.length ? `${t.checklist.filter(c => a.checks?.[c.id]).length}/${t.checklist.length} checked` : '';
         return `<div class="row"><div class="grow"><b>${esc(p.name)}</b> <span class="small">${esc(p.phoneDisplay || '')} ${esc(p.email || '')}</span>
           ${a.note ? `<div class="small">"${esc(a.note)}"</div>` : ''}${ch ? `<div class="small">${ch}</div>` : ''}</div>${pill(a.status)}
-          ${t.kind !== 'coordinator' && a.saved !== 'scheduled' && !noEmailAtAll(p) ? `<button class="btn sm" data-resend="${pid}" title="Send the message again now, as a reminder">Send reminder</button>` : ''}
           ${!['done', 'called', 'scheduled'].includes(a.status) && t.kind !== 'coordinator' ? `<button class="btn sm" data-mark="called:${pid}" title="You talked to them on the phone">I called</button>` : ''}
           ${a.status !== 'done' ? `<button class="btn sm primary" data-mark="done:${pid}">Mark done</button>` : `<button class="btn sm" data-mark="todo:${pid}">Reopen</button>`}</div>`;
       }).join('') : `<div class="warnbox">Nobody holds the role <b>${t.roles.map(roleName).join(', ')}</b>. <a href="#/e/${A.eid}/team" id="goTeam">Assign someone on Team & roles</a>, then send it.</div>`}
@@ -368,15 +348,16 @@ async function renderDrawer() {
     await act(() => api('POST', `/admin/events/${A.eid}/tasks/${t.id}/assignees/${pid}`, { status }), status === 'called' ? 'Noted: you called them' : status === 'done' ? 'Marked done' : 'Reopened');
     await load();
   });
-  dr.querySelectorAll('[data-resend]').forEach(b => b.onclick = () => send(`/tasks/${t.id}/send`, { pids: [b.dataset.resend] }, 'reminder(s)'));
-  const sendBtn = document.getElementById('sendTask');
-  if (sendBtn) sendBtn.onclick = () => send(`/tasks/${t.id}/send`, { pids: unsent }, 'email(s)');
   const body = document.getElementById('tabBody');
   if (tab === 'messages' && t.kind !== 'coordinator') {
     const pv = await api('GET', `/admin/events/${A.eid}/tasks/${t.id}/preview${A.drawerPid ? `?pid=${A.drawerPid}` : ''}`);
     body.innerHTML = `${pids.length > 1 ? `<div class="filters">${pids.map(pid => `<button class="btn sm ${pid === A.drawerPid ? 'on' : ''}" data-pv="${pid}">${esc(firstOf(P(pid)))}</button>`).join('')}</div>` : ''}
       ${smsOn() ? `<div class="small" style="margin-bottom:4px">Text message</div><div class="sms-bubble">${linkify(pv.sms)}</div>` : ''}
-      <div class="small" style="margin:14px 0 4px">Email - subject: <b>${esc(pv.subject)}</b></div><pre class="mail">${linkify(pv.body)}</pre>`;
+      <div class="small" style="margin:14px 0 4px">Email - subject: <b>${esc(pv.subject)}</b></div>
+      <div style="display:flex;gap:6px;margin-bottom:6px"><button class="btn sm primary" id="copySubject">Copy subject</button><button class="btn sm primary" id="copyBody">Copy email body</button></div>
+      <pre class="mail">${linkify(pv.body)}</pre>`;
+    document.getElementById('copySubject').onclick = () => { navigator.clipboard.writeText(pv.subject); toast('Subject copied'); };
+    document.getElementById('copyBody').onclick = () => { navigator.clipboard.writeText(pv.body); toast('Email body copied'); };
     body.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { A.drawerPid = b.dataset.pv; renderDrawer(); });
   } else if (tab === 'log') {
     body.innerHTML = (t.log || []).length ? `<div class="log">${t.log.map(l => `<div class="k-${l.kind}"><b>${fmt.dt(l.at, tz())}</b> ${esc(l.text)}</div>`).join('')}</div>` : `<div class="muted">Nothing yet - ready to send ${fmt.dt(t.sendAt, tz())}.</div>`;
