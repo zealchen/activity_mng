@@ -722,8 +722,8 @@ function pShopping(el) {
         <td><input type="checkbox" data-bought="${i.id}" ${i.bought ? 'checked' : ''} title="${i.boughtBy ? 'by ' + esc(P(i.boughtBy).name || i.boughtBy) : ''}"></td>
         <td>${esc(i.name)}${i.bought && i.boughtBy ? `<div class="small">bought by ${esc(i.boughtBy === 'coordinator' ? 'you' : P(i.boughtBy).name)}</div>` : ''}</td>
         <td class="qty-old">${esc(i.lastQty || '')}</td>
-        <td><input value="${esc(i.qty)}" data-qty="${i.id}" style="padding:3px 7px"></td>
-        <td><input value="${esc(i.note || '')}" data-note="${i.id}" style="padding:3px 7px"></td>
+        <td><input class="noprint" value="${esc(i.qty)}" data-qty="${i.id}" style="padding:3px 7px"><span class="printonly">${esc(i.qty)}</span></td>
+        <td><input class="noprint" value="${esc(i.note || '')}" data-note="${i.id}" style="padding:3px 7px"><span class="printonly">${esc(i.note || '')}</span></td>
         <td class="noprint"><button class="btn sm danger" data-del="${i.id}">x</button></td></tr>`).join('')}
     </table></div>`).join('')}
     <form class="card noprint" id="addItem" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
