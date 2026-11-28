@@ -77,7 +77,8 @@ tr.changed td { background: #fffaf0; }
 .rolebox { display: flex; flex-wrap: wrap; gap: 6px; }
 .rolebox label { display: inline-flex; gap: 5px; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; background: #fff; font-size: 13px; cursor: pointer; }
 .rolebox label.on { background: var(--green-soft); border-color: var(--green); }
-@media print { aside, .topbar, .noprint { display: none !important; } .app { display: block; } }
+.printonly { display: none; }
+@media print { aside, .topbar, .noprint { display: none !important; } .app { display: block; } .printonly { display: inline; } }
 </style>
 </head>
 <body>
